@@ -1,0 +1,11 @@
+CHIP Inc16 {
+    IN in[16];
+    OUT out[16];
+
+    PARTS:
+    // per the appendix in the book, you can set 
+    // specific pins to whatever values you want
+    // as such, to add 1, set the LSB of bus b to 
+    // "true" (i.e., 1) 
+    Add16(a = in, b[0] = true, out = out);
+}

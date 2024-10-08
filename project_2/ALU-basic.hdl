@@ -1,0 +1,51 @@
+CHIP ALU {
+    IN  
+        x[16], y[16],  // 16-bit inputs        
+        zx, // zero the x input?
+        nx, // negate the x input?
+        zy, // zero the y input?
+        ny, // negate the y input?
+        f,  // compute (out = x + y) or (out = x & y)?
+        no; // negate the out output?
+    OUT 
+        out[16], // 16-bit output
+        zr,      // if (out == 0) equals 1, else 0
+        ng;      // if (out < 0)  equals 1, else 0
+
+    PARTS:
+    // to zero the x, add -x to x; make -x by first 
+    // flipping all the bits (i.e., Not(x)) and then
+    // adding 1 (i.e., incrementer) 
+    Not16(in= x, out= notx);
+    Inc16(in=notx, out=notxinc);
+    Add16(a = x, b = notxinc, out = zerox);
+
+    // zero the y 
+    Not16(in= y, out= noty);
+    Inc16(in= noty, out= notyinc);
+    Add16(a = y, b = notyinc, out = zeroy);
+
+    // choose between the normal x/y or the 
+    // zeroed x/y based on the selection bit
+    Mux16(a=x, b=zerox, sel=zx, out=zeroxmux);
+    Mux16(a=y, b=zeroy, sel=zy, out=zeroymux);
+
+    // negate x or y if needed
+    Not16(in= zeroxmux, out= nzeroxmux);
+    Not16(in= zeroymux, out= nzeroymux); 
+
+    Mux16(a= zeroxmux, b= nzeroxmux, sel= nx, out= negatexmux);
+    Mux16(a= zeroymux, b= nzeroymux, sel= ny, out= negateymux);
+
+    // handle f bit by computing both x+y (bitwise
+    // addition) and x AND y (logical comparison)
+    // and choosing between them based on f 
+    Add16(a = negatexmux, b = negateymux, out = addxy);
+    And16(a = negatexmux, b = negateymux, out = andxy);
+
+    Mux16(a = andxy, b = addxy, sel = f, out = fout);
+
+    // determine whether to "not" the output
+    Not16(in = fout, out = nfout);
+    Mux16(a = fout, b = nfout, sel= no, out=out);
+}

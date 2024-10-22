@@ -3,23 +3,9 @@ CHIP PC {
     OUT out[16];
     
     PARTS:
-    // set up the 2-bit selection signal
-    // in my setup, 00 = register output (i.e., do nothing), 
-    // 01 = increment, 10 = load, and 11 = reset
-    Or(a=reset, b=load, out=selMSB);
-    Not(in=load, out=nload);
-    And(a=nload, b=inc, out = nloadAndInc); 
-    Or(a=reset, b=nloadAndInc, out=selLSB);
+    Inc16(in=regOut, out=regOutInc);
 
-    // set the load signal for the register;
-    // register will load when any of the control 
-    // signals are 1 
-    Or(a=reset, b=load, out=resetOrLoad); 
-    Or(a=resetOrLoad, b=inc, out=loadReg); 
+    Mux8Way16(a=regOut, b=regOutInc, c=in, d=in, e=false, f=false, g=false, h=false, sel[2]=reset, sel[1]=load, sel[0]=inc, out=muxOut);
 
-    Inc16(in=regout, out=incOut);
-
-    Mux4Way16(a=regout, b=incOut, c=in, d=false, sel[0]=selLSB, sel[1]=selMSB, out=registerInput);
-
-    Register(in=registerInput, load=loadReg, out=regout, out=out);
+    Register(in=muxOut, load=true, out=out, out=regOut);
 }

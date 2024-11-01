@@ -1,0 +1,67 @@
+CHIP CPU {
+
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to re-start the current
+                         // program (reset==1) or continue executing
+                         // the current program (reset==0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write to M? 
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // address of next instruction
+
+    PARTS:    
+	Mux16(a=instruction, b=ALUout, sel=instruction[15], out=mux1out);
+    
+    // A register will be loaded if the opcode is 1
+    // or if the d bit of the C-instruction that 
+    // codes for the A register destination is 1
+    Not(in=instruction[15], out=noti); 
+    Or(a=noti, b=instruction[5], out=loadAReg);
+    ARegister(in=mux1out, load=loadAReg, out=ARegOut, out[0..14]=addressM);
+
+    // the "a" bit of the instruction (if it's a C 
+    // instruction) decides whether to select the
+    // A register (if a is 0) or the M (if a is 
+    // 1); so "And" the MSB + the "a" bit and 
+    // use that as the selection for the second Mux
+    And(a=instruction[15], b=instruction[12], out=selMux2);
+    Mux16(a=ARegOut, b=inM, sel=selMux2, out=mux2out);
+
+    // only need to load into D if both of these 
+    // are true: 1. the instruction is a C instruction
+    // and 2. the "d" bit in the C instruction that 
+    // corresponds to the D register is 1 
+    And(a=instruction[15], b=instruction[4], out=loadD);
+    DRegister(in=ALUout, load=loadD, out=DRegOut);
+
+    // similarly, write to M if you have a C instruction
+    // (ins[15] is 1) and the d bit that goes with 
+    // M is 1
+    And(a=instruction[15], b=instruction[3], out=writeM);
+
+    ALU(x=DRegOut, y=mux2out, zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6], out=ALUout, out=outM, zr=zr, ng=ng);
+
+    // handle the j bits of the instruction, which 
+    // determine whether to load what's in the 
+    // A register as the next address (i.e., whether 
+    // to "jump)
+
+    Not(in=ng, out=positive);
+    Not(in=zr, out=notzero);
+    And(a=positive, b=notzero, out=positiveAndNotZero);
+
+    And(a=instruction[15], b=instruction[0], out=JGT);
+    And(a=instruction[15], b=instruction[1], out=JEQ);
+    And(a=instruction[15], b=instruction[2], out=JLT);
+
+    And(a=JGT, b=positiveAndNotZero, out=l1);
+    And(a=JEQ, b=zr, out=l2);
+    And(a=JLT, b=ng, out=l3);
+
+    Or(a=l1, b=l2, out=l1and2);
+    Or(a=l1and2, b=l3, out=loadPC);
+
+    PC(in=ARegOut, load=loadPC, inc=true, reset=reset, out[0..14]=pc);
+}

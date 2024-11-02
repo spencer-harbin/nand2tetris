@@ -15,7 +15,12 @@ class Parser:
         self.current_command += 1
 
     def commandType(self):
-        first_char = self.lines[self.current_command][0]
+        com = self.lines[self.current_command].strip()
+        if com == '':
+            return None
+                
+        first_char = com[0]
+
         if '//' in self.lines[self.current_command]:
             return 'COMMENT' 
         if first_char == '@':
@@ -29,13 +34,14 @@ class Parser:
 
     def symbol(self):
         curr_command = self.lines[self.current_command]
+        curr_command = curr_command.strip()
 
         if '@' in curr_command:
             s = curr_command.replace('@', '')
             return s.strip() 
         elif '(' in curr_command: 
             s = curr_command.replace('(', '')
-            s = curr_command.replace(')', '')
+            s = s.replace(')', '')
             return s.strip() 
 
     def dest(self):
@@ -43,18 +49,22 @@ class Parser:
             return 'null'
         else:
             # dest corresponds to whatever is on the left-hand side of the "=" sign 
-            dest = self.lines[self.current_command].split('=')[0]
+            dest = self.lines[self.current_command].strip().split('=')[0]
             return dest
 
     def comp(self):
-        comp = self.lines[self.current_command].split('=')[-1].strip()
-        return comp  
+        if '=' in self.lines[self.current_command]:
+            comp = self.lines[self.current_command].strip().split('=')[-1]
+            return comp
+        elif ';' in self.lines[self.current_command]:
+            comp = self.lines[self.current_command].strip().split(';')[0]
+            return comp   
 
     def jump(self):
         if not ';' in self.lines[self.current_command]:
             return 'null'
         else:
-            return self.lines[self.current_command].split(';')[-1]
+            return self.lines[self.current_command].strip().split(';')[-1]
 
 class Code:
     def __init__(self): 
@@ -152,11 +162,19 @@ class SymbolTable:
 
     def getAddress(self, string): 
         return self.symbol_table[string] 
+    
+# simple function to determine if something is a number or not
+def is_num(input):
+    try:
+        int(input)
+        return True
+    except:
+        return False
 
 if __name__ == '__main__':
     binary_commands = []
 
-    assemb = Parser('./add.asm')
+    assemb = Parser('./max.asm')
     codes = Code()
     symbTable = SymbolTable() 
 
@@ -173,7 +191,7 @@ if __name__ == '__main__':
 
                 # convert ROM instruction to 16-bit binary 
                 ROM_inst_binary = bin(int(ROM_inst))[2:].zfill(16)
-                symbTable.addEntry(symbol, ROM_inst)
+                symbTable.addEntry(symbol, ROM_inst_binary)
             
             elif line[:2] == '//' or line == '':
                 pass 
@@ -183,6 +201,9 @@ if __name__ == '__main__':
 
     # reset command count for second run 
     assemb.current_command = -1
+
+    # used for updating variables in the symbol table 
+    RAM_address = 16
 
     while assemb.hasMoreCommands():
         binary_command = ''
@@ -194,9 +215,23 @@ if __name__ == '__main__':
             # bin_com = bin(assemb.symbol) 
             opcode = '0'
             value = assemb.symbol()
-            value = bin(int(value))[2:].zfill(15)
-            binary_command = opcode + value
-            binary_commands.append(binary_command)
+
+            # dumb hacky workaround: if int(value) returns an error, then the symbol is likely not a decimal number (and is thus likely a variable)
+            if not is_num(value) and value not in symbTable.symbol_table.keys(): # this should probably make use of the contains() method, but w/e
+                binary_command = str(bin(RAM_address)[2:].zfill(16))
+                binary_commands.append(binary_command)
+                RAM_address += 1
+
+                # create an entry in the table for the variable
+                symbTable.addEntry(value, binary_command) 
+                pass
+            elif value in symbTable.symbol_table.keys():
+                binary_command = symbTable.getAddress(value)
+                binary_commands.append(binary_command) 
+            else:
+                value = bin(int(value))[2:].zfill(15)
+                binary_command = opcode + value
+                binary_commands.append(binary_command)
 
         elif current_command_type == 'C_COMMAND':
             opcode = '111'
@@ -210,6 +245,7 @@ if __name__ == '__main__':
             pass
 
     print(binary_commands)
-    # with open('add.hack', 'w') as newfile: 
-    #     for command in binary_commands:
-    #         newfile.write(command + '\n')
+    print(symbTable.symbol_table)
+    with open('max.hack', 'w') as newfile: 
+        for command in binary_commands:
+            newfile.write(command + '\n')

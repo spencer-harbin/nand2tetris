@@ -131,7 +131,7 @@ class SymbolTable:
             'ARG': '0000000000000010',
             'THIS': '0000000000000011', 
             'THAT': '0000000000000100',
-            'R0 ': '0000000000000000', 
+            'R0': '0000000000000000', 
             'R1': '0000000000000001', 
             'R2': '0000000000000010', 
             'R3': '0000000000000011', 
@@ -174,12 +174,12 @@ def is_num(input):
 if __name__ == '__main__':
     binary_commands = []
 
-    assemb = Parser('./max.asm')
+    assemb = Parser('./pong.asm')
     codes = Code()
     symbTable = SymbolTable() 
 
     # first run through to update symbol table 
-    with open('./max.asm') as file:
+    with open('./pong.asm') as file:
         lines = file.readlines()
         ROM_inst = 0 
         for line in lines:
@@ -217,7 +217,7 @@ if __name__ == '__main__':
             value = assemb.symbol()
 
             # dumb hacky workaround: if int(value) returns an error, then the symbol is likely not a decimal number (and is thus likely a variable)
-            if not is_num(value) and value not in symbTable.symbol_table.keys(): # this should probably make use of the contains() method, but w/e
+            if not is_num(value) and not symbTable.contains(value): # this should probably make use of the contains() method, but w/e
                 binary_command = str(bin(RAM_address)[2:].zfill(16))
                 binary_commands.append(binary_command)
                 RAM_address += 1
@@ -246,6 +246,6 @@ if __name__ == '__main__':
 
     print(binary_commands)
     print(symbTable.symbol_table)
-    with open('max.hack', 'w') as newfile: 
+    with open('pong.hack', 'w') as newfile: 
         for command in binary_commands:
             newfile.write(command + '\n')
